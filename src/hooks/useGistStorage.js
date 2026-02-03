@@ -6,37 +6,42 @@ const GIST_FILENAME = 'personal-checklist-data.json';
 const GIST_DESCRIPTION = 'Personal Checklist App Data - Do not delete';
 
 const useGistStorage = (key, initialValue) => {
-  const [storedValue, setStoredValue] = useState(initialValue);
+  // Initialize from localStorage first for immediate display
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (e) {
+      return initialValue;
+    }
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState(null);
   const gistIdRef = useRef(null);
+  const initializedRef = useRef(false);
 
-  const getHeaders = () => ({
+  const getHeaders = useCallback(() => ({
     'Authorization': `Bearer ${GITHUB_TOKEN}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
-  });
+  }), []);
 
-  // Find or create the gist on mount
+  // Initialize Gist connection
   useEffect(() => {
-    // If no token, fall back to localStorage only
+    // Prevent double initialization in React StrictMode
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    // If no token, just use localStorage
     if (!GITHUB_TOKEN) {
       console.warn('No GitHub token configured, using localStorage only');
-      const localData = localStorage.getItem(key);
-      if (localData) {
-        try {
-          setStoredValue(JSON.parse(localData));
-        } catch (e) {
-          // ignore parse errors
-        }
-      }
       setIsLoading(false);
       return;
     }
 
     const initGist = async () => {
-      setIsLoading(true);
       setError(null);
 
       try {
@@ -46,7 +51,7 @@ const useGistStorage = (key, initialValue) => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to connect to GitHub');
+          throw new Error('Failed to connect to GitHub: ' + response.status);
         }
 
         const gists = await response.json();
@@ -55,15 +60,33 @@ const useGistStorage = (key, initialValue) => {
         );
 
         if (existingGist) {
-          // Load data from existing gist
+          // Found existing gist - load its data
           gistIdRef.current = existingGist.id;
-          const content = existingGist.files[GIST_FILENAME]?.content;
-          if (content) {
-            const data = JSON.parse(content);
-            setStoredValue(data[key] || initialValue);
+
+          // Get full gist content
+          const fullResponse = await fetch(`https://api.github.com/gists/${existingGist.id}`, {
+            headers: getHeaders(),
+          });
+
+          if (fullResponse.ok) {
+            const fullGist = await fullResponse.json();
+            const content = fullGist.files[GIST_FILENAME]?.content;
+
+            if (content) {
+              const data = JSON.parse(content);
+              const tasks = data[key];
+
+              if (Array.isArray(tasks)) {
+                setStoredValue(tasks);
+                localStorage.setItem(key, JSON.stringify(tasks));
+              }
+            }
           }
         } else {
-          // Create new gist
+          // No existing gist - create one with current localStorage data
+          const currentData = localStorage.getItem(key);
+          const tasksToSave = currentData ? JSON.parse(currentData) : initialValue;
+
           const createResponse = await fetch('https://api.github.com/gists', {
             method: 'POST',
             headers: getHeaders(),
@@ -72,14 +95,14 @@ const useGistStorage = (key, initialValue) => {
               public: false,
               files: {
                 [GIST_FILENAME]: {
-                  content: JSON.stringify({ [key]: initialValue }, null, 2),
+                  content: JSON.stringify({ [key]: tasksToSave }, null, 2),
                 },
               },
             }),
           });
 
           if (!createResponse.ok) {
-            throw new Error('Failed to create sync storage');
+            throw new Error('Failed to create gist: ' + createResponse.status);
           }
 
           const newGist = await createResponse.json();
@@ -88,22 +111,13 @@ const useGistStorage = (key, initialValue) => {
       } catch (err) {
         console.error('Gist init error:', err);
         setError(err.message);
-        // Fall back to localStorage
-        const localData = localStorage.getItem(key);
-        if (localData) {
-          try {
-            setStoredValue(JSON.parse(localData));
-          } catch (e) {
-            // ignore parse errors
-          }
-        }
       } finally {
         setIsLoading(false);
       }
     };
 
     initGist();
-  }, [key, initialValue]);
+  }, [key, getHeaders, initialValue]);
 
   // Save to gist
   const saveToGist = useCallback(async (value) => {
@@ -126,7 +140,7 @@ const useGistStorage = (key, initialValue) => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save');
+        throw new Error('Failed to save: ' + response.status);
       }
     } catch (err) {
       console.error('Gist save error:', err);
@@ -134,21 +148,24 @@ const useGistStorage = (key, initialValue) => {
     } finally {
       setIsSyncing(false);
     }
-  }, [key]);
+  }, [key, getHeaders]);
 
   // Update value and sync
   const setValue = useCallback((value) => {
-    const valueToStore = value instanceof Function ? value(storedValue) : value;
-    setStoredValue(valueToStore);
+    setStoredValue(prevValue => {
+      const valueToStore = value instanceof Function ? value(prevValue) : value;
 
-    // Save to localStorage as backup
-    localStorage.setItem(key, JSON.stringify(valueToStore));
+      // Save to localStorage immediately
+      localStorage.setItem(key, JSON.stringify(valueToStore));
 
-    // Sync to gist if configured
-    if (GITHUB_TOKEN) {
-      saveToGist(valueToStore);
-    }
-  }, [key, storedValue, saveToGist]);
+      // Sync to gist
+      if (GITHUB_TOKEN && gistIdRef.current) {
+        saveToGist(valueToStore);
+      }
+
+      return valueToStore;
+    });
+  }, [key, saveToGist]);
 
   return [
     storedValue,
