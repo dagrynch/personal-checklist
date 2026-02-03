@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import PasswordGate from './components/PasswordGate';
-import GitHubSetup from './components/GitHubSetup';
 import Header from './components/Header';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
@@ -17,23 +16,12 @@ import {
 } from './utils/statsUtils';
 
 function App() {
-  const [tasks, setTasks, gistStatus] = useGistStorage('checklist-tasks', []);
+  const [tasks, setTasks, syncStatus] = useGistStorage('checklist-tasks', []);
   const [filter, setFilter] = useState('all');
   const [editTask, setEditTask] = useState(null);
   const [milestone, setMilestone] = useState(null);
-  const [showSetup, setShowSetup] = useState(false);
-  const [setupSkipped, setSetupSkipped] = useState(() => {
-    return localStorage.getItem('checklist_setup_skipped') === 'true';
-  });
 
   const { permission, requestPermission } = useNotifications(tasks);
-
-  // Show setup if not configured and not skipped
-  useEffect(() => {
-    if (!gistStatus.isLoading && !gistStatus.isConfigured && !setupSkipped) {
-      setShowSetup(true);
-    }
-  }, [gistStatus.isLoading, gistStatus.isConfigured, setupSkipped]);
 
   // Calculate stats
   const streak = calculateStreak(tasks);
@@ -50,26 +38,6 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [totalCompleted]);
-
-  const handleGitHubConfigure = async (token) => {
-    const result = await gistStatus.configureGitHub(token);
-    if (result.success) {
-      setShowSetup(false);
-      localStorage.removeItem('checklist_setup_skipped');
-      setSetupSkipped(false);
-    }
-    return result;
-  };
-
-  const handleSkipSetup = () => {
-    localStorage.setItem('checklist_setup_skipped', 'true');
-    setSetupSkipped(true);
-    setShowSetup(false);
-  };
-
-  const handleOpenSetup = () => {
-    setShowSetup(true);
-  };
 
   const addTask = (taskData) => {
     const newTask = {
@@ -111,20 +79,8 @@ function App() {
     setTasks(newTasks);
   };
 
-  // Show GitHub setup screen
-  if (showSetup && !gistStatus.isConfigured) {
-    return (
-      <PasswordGate>
-        <GitHubSetup
-          onConfigure={handleGitHubConfigure}
-          onSkip={handleSkipSetup}
-        />
-      </PasswordGate>
-    );
-  }
-
-  // Show loading state
-  if (gistStatus.isLoading) {
+  // Show loading state while syncing initial data
+  if (syncStatus.isLoading) {
     return (
       <PasswordGate>
         <div className="min-h-screen bg-dark-900 flex items-center justify-center">
@@ -145,9 +101,7 @@ function App() {
           <Header
             onRequestNotifications={requestPermission}
             notificationPermission={permission}
-            isGitHubConnected={gistStatus.isConfigured}
-            isSyncing={gistStatus.isSyncing}
-            onOpenGitHubSetup={handleOpenSetup}
+            isSyncing={syncStatus.isSyncing}
           />
 
           {/* Desktop: Side-by-side layout, Mobile: Stacked */}
@@ -185,14 +139,14 @@ function App() {
 
           {/* Sync error notification */}
           <AnimatePresence>
-            {gistStatus.error && (
+            {syncStatus.error && (
               <motion.div
                 initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 50 }}
                 className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm z-50"
               >
-                Sync error: {gistStatus.error}
+                Sync error: {syncStatus.error}
               </motion.div>
             )}
           </AnimatePresence>
