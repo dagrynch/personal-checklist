@@ -1,0 +1,239 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111111;
+  --bg-card: #1a1a1a;
+  --bg-elevated: #222222;
+  --border-color: #2a2a2a;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #666666;
+  --accent: #10b981;
+  --accent-light: #34d399;
+  --accent-dark: #059669;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: #0a0a0a;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Main background - dark with subtle gradient */
+.bg-main {
+  background: linear-gradient(180deg, #0a0a0a 0%, #0f1a14 50%, #0a0a0a 100%);
+  min-height: 100vh;
+}
+
+/* Card styles - dark glass effect */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.card-elevated {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+/* Task item styles */
+.task-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.task-item:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
+  transform: translateX(4px);
+}
+
+/* Checkbox styles - green theme */
+.checkbox-custom {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.checkbox-custom:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+.checkbox-custom:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+.checkbox-custom:checked::after {
+  content: '';
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid white;
+  border-bottom: 2px solid white;
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Priority indicators */
+.priority-low {
+  border-left: 3px solid #10b981;
+}
+
+.priority-medium {
+  border-left: 3px solid #f59e0b;
+}
+
+.priority-high {
+  border-left: 3px solid #ef4444;
+}
+
+/* Button styles */
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.btn-primary:hover {
+  background: var(--accent-light);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-secondary.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Input styles */
+.input-dark {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.input-dark::placeholder {
+  color: var(--text-muted);
+}
+
+.input-dark:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+/* Progress ring */
+.progress-ring {
+  transform: rotate(-90deg);
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Animations */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
+  }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Stat card glow effect */
+.stat-value {
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+}
+
+/* Desktop layout improvements */
+@media (min-width: 1024px) {
+  .desktop-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    max-width: 1200px;
+  }
+
+  .desktop-sidebar {
+    position: sticky;
+    top: 24px;
+    height: fit-content;
+  }
+}
+
+/* Selection color */
+::selection {
+  background: rgba(16, 185, 129, 0.3);
+  color: white;
+}
