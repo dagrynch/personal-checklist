@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion';
+
 // Generate consistent color based on name
 const getColorForName = (name) => {
   if (!name) return { bg: 'bg-gray-600', text: 'text-gray-300' };

@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import AssigneeAvatar from './AssigneeAvatar';
 
 const AssigneeInput = ({ value, onChange, tasks = [] }) => {
