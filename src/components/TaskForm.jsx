@@ -1,13 +1,30 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getTodayString } from '../utils/dateUtils';
+import TagSelector from './TagSelector';
+import AssigneeInput from './AssigneeInput';
+import LinkInput from './LinkInput';
 
-const TaskForm = ({ onAddTask, editTask, onUpdateTask, onCancelEdit }) => {
+const TaskForm = ({
+  onAddTask,
+  editTask,
+  onUpdateTask,
+  onCancelEdit,
+  folders = [],
+  tags = [],
+  tasks = [],
+  activeFolderId,
+  onCreateTag,
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
   const [priority, setPriority] = useState('medium');
+  const [folderId, setFolderId] = useState(null);
+  const [tagIds, setTagIds] = useState([]);
+  const [assignee, setAssignee] = useState(null);
+  const [links, setLinks] = useState([]);
 
   useEffect(() => {
     if (editTask) {
@@ -15,9 +32,16 @@ const TaskForm = ({ onAddTask, editTask, onUpdateTask, onCancelEdit }) => {
       setDescription(editTask.description || '');
       setDeadline(editTask.deadline || '');
       setPriority(editTask.priority || 'medium');
+      setFolderId(editTask.folderId || null);
+      setTagIds(editTask.tagIds || []);
+      setAssignee(editTask.assignee || null);
+      setLinks(editTask.links || []);
       setIsExpanded(true);
+    } else {
+      // Set folder to active folder when creating new task
+      setFolderId(activeFolderId === 'inbox' ? null : activeFolderId);
     }
-  }, [editTask]);
+  }, [editTask, activeFolderId]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -28,6 +52,10 @@ const TaskForm = ({ onAddTask, editTask, onUpdateTask, onCancelEdit }) => {
       description: description.trim(),
       deadline: deadline || null,
       priority,
+      folderId: folderId || null,
+      tagIds,
+      assignee,
+      links,
     };
 
     if (editTask) {
@@ -44,6 +72,10 @@ const TaskForm = ({ onAddTask, editTask, onUpdateTask, onCancelEdit }) => {
     setDescription('');
     setDeadline('');
     setPriority('medium');
+    setFolderId(activeFolderId === 'inbox' ? null : activeFolderId);
+    setTagIds([]);
+    setAssignee(null);
+    setLinks([]);
     setIsExpanded(false);
     if (editTask) onCancelEdit();
   };
@@ -86,6 +118,7 @@ const TaskForm = ({ onAddTask, editTask, onUpdateTask, onCancelEdit }) => {
               className="overflow-hidden"
             >
               <div className="pt-4 space-y-4">
+                {/* Description */}
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -94,6 +127,7 @@ const TaskForm = ({ onAddTask, editTask, onUpdateTask, onCancelEdit }) => {
                   className="w-full px-4 py-3 rounded-xl input-dark text-white placeholder-gray-500 resize-none"
                 />
 
+                {/* Row 1: Deadline & Priority */}
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -137,6 +171,51 @@ const TaskForm = ({ onAddTask, editTask, onUpdateTask, onCancelEdit }) => {
                   </div>
                 </div>
 
+                {/* Row 2: Folder & Assignee */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Folder Selector */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                      Folder
+                    </label>
+                    <select
+                      value={folderId || 'inbox'}
+                      onChange={(e) => setFolderId(e.target.value === 'inbox' ? null : e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl input-dark text-white"
+                    >
+                      {folders.map((folder) => (
+                        <option key={folder.id} value={folder.id}>
+                          {folder.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Assignee */}
+                  <div className="flex-1">
+                    <AssigneeInput
+                      value={assignee}
+                      onChange={setAssignee}
+                      tasks={tasks}
+                    />
+                  </div>
+                </div>
+
+                {/* Row 3: Tags */}
+                <TagSelector
+                  tags={tags}
+                  selectedTagIds={tagIds}
+                  onChange={setTagIds}
+                  onCreateTag={onCreateTag}
+                />
+
+                {/* Row 4: Links */}
+                <LinkInput
+                  links={links}
+                  onChange={setLinks}
+                />
+
+                {/* Cancel Button (only when editing) */}
                 {isEditing && (
                   <div className="flex justify-end pt-2">
                     <motion.button

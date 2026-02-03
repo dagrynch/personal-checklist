@@ -4,8 +4,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatDate, isOverdue, isDueToday, getRelativeTime } from '../utils/dateUtils';
 import Confetti from './Confetti';
+import TagBadge from './TagBadge';
+import AssigneeAvatar from './AssigneeAvatar';
+import LinkList from './LinkList';
 
-const TaskItem = ({ task, onToggle, onDelete, onEdit }) => {
+const TaskItem = ({ task, onToggle, onDelete, onEdit, tags = [], folders = [] }) => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -54,6 +57,12 @@ const TaskItem = ({ task, onToggle, onDelete, onEdit }) => {
     if (isDueToday(task.deadline)) return 'text-amber-400';
     return 'text-gray-500';
   };
+
+  // Get task's tags
+  const taskTags = tags.filter(tag => task.tagIds?.includes(tag.id));
+
+  // Get folder name
+  const folder = folders.find(f => f.id === task.folderId);
 
   return (
     <motion.div
@@ -121,13 +130,20 @@ const TaskItem = ({ task, onToggle, onDelete, onEdit }) => {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <h3
-            className={`font-medium transition-all ${
-              task.completed ? 'line-through text-gray-500' : 'text-white'
-            }`}
-          >
-            {task.title}
-          </h3>
+          <div className="flex items-start gap-2">
+            <h3
+              className={`font-medium transition-all flex-1 ${
+                task.completed ? 'line-through text-gray-500' : 'text-white'
+              }`}
+            >
+              {task.title}
+            </h3>
+            {/* Assignee Avatar */}
+            {task.assignee && (
+              <AssigneeAvatar name={task.assignee} size="sm" />
+            )}
+          </div>
+
           {task.description && (
             <p
               className={`text-sm mt-1 ${
@@ -137,24 +153,53 @@ const TaskItem = ({ task, onToggle, onDelete, onEdit }) => {
               {task.description}
             </p>
           )}
-          {task.deadline && (
-            <div className={`flex items-center gap-1.5 mt-2 text-xs ${getDeadlineColor()}`}>
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <span>{getRelativeTime(task.deadline)}</span>
-              {isOverdue(task.deadline) && !task.completed && (
-                <span className="ml-1 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-medium">
-                  Overdue
-                </span>
-              )}
+
+          {/* Tags */}
+          {taskTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {taskTags.map(tag => (
+                <TagBadge key={tag.id} tag={tag} size="xs" />
+              ))}
             </div>
           )}
+
+          {/* Links */}
+          {task.links?.length > 0 && (
+            <LinkList links={task.links} compact />
+          )}
+
+          {/* Meta info row */}
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
+            {/* Deadline */}
+            {task.deadline && (
+              <div className={`flex items-center gap-1.5 text-xs ${getDeadlineColor()}`}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <span>{getRelativeTime(task.deadline)}</span>
+                {isOverdue(task.deadline) && !task.completed && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-xs font-medium">
+                    Overdue
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Folder badge */}
+            {folder && folder.id !== 'inbox' && (
+              <div className="flex items-center gap-1 text-xs text-gray-500">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <span>{folder.name}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Actions */}

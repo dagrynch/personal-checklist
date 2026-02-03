@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import PasswordGate from './components/PasswordGate';
 import Header from './components/Header';
+import Sidebar from './components/Sidebar';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import StatsPanel from './components/StatsPanel';
+import Dashboard from './components/Dashboard';
 import useGistStorage from './hooks/useGistStorage';
 import useNotifications from './hooks/useNotifications';
 import {
@@ -16,10 +18,26 @@ import {
 } from './utils/statsUtils';
 
 function App() {
-  const [tasks, setTasks, syncStatus] = useGistStorage('checklist-tasks', []);
+  // Data from gist storage
+  const {
+    tasks,
+    folders,
+    tags,
+    setTasks,
+    setFolders,
+    setTags,
+    syncStatus,
+  } = useGistStorage();
+
+  // UI State
   const [filter, setFilter] = useState('all');
   const [editTask, setEditTask] = useState(null);
   const [milestone, setMilestone] = useState(null);
+  const [activeFolderId, setActiveFolderId] = useState('inbox');
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [filterTagIds, setFilterTagIds] = useState([]);
+  const [filterAssignee, setFilterAssignee] = useState(null);
 
   const { permission, requestPermission } = useNotifications(tasks);
 
@@ -39,6 +57,7 @@ function App() {
     }
   }, [totalCompleted]);
 
+  // Task CRUD operations
   const addTask = (taskData) => {
     const newTask = {
       id: Date.now().toString(),
@@ -46,6 +65,7 @@ function App() {
       completed: false,
       createdAt: new Date().toISOString(),
       completedAt: null,
+      order: tasks.length,
     };
     setTasks((prev) => [newTask, ...prev]);
   };
@@ -79,6 +99,64 @@ function App() {
     setTasks(newTasks);
   };
 
+  // Folder CRUD operations
+  const createFolder = (folderData) => {
+    const newFolder = {
+      id: Date.now().toString(),
+      ...folderData,
+      order: folders.length,
+      createdAt: new Date().toISOString(),
+    };
+    setFolders((prev) => [...prev, newFolder]);
+  };
+
+  const updateFolder = (updatedFolder) => {
+    setFolders((prev) =>
+      prev.map((folder) => (folder.id === updatedFolder.id ? updatedFolder : folder))
+    );
+  };
+
+  const deleteFolder = (folderId) => {
+    // Move tasks from deleted folder to inbox
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.folderId === folderId ? { ...task, folderId: null } : task
+      )
+    );
+    setFolders((prev) => prev.filter((folder) => folder.id !== folderId));
+    if (activeFolderId === folderId) {
+      setActiveFolderId('inbox');
+    }
+  };
+
+  // Tag CRUD operations
+  const createTag = (tagData) => {
+    const newTag = {
+      id: Date.now().toString(),
+      ...tagData,
+      createdAt: new Date().toISOString(),
+    };
+    setTags((prev) => [...prev, newTag]);
+  };
+
+  const updateTag = (updatedTag) => {
+    setTags((prev) =>
+      prev.map((tag) => (tag.id === updatedTag.id ? updatedTag : tag))
+    );
+  };
+
+  const deleteTag = (tagId) => {
+    // Remove tag from all tasks
+    setTasks((prev) =>
+      prev.map((task) => ({
+        ...task,
+        tagIds: task.tagIds?.filter((id) => id !== tagId) || [],
+      }))
+    );
+    setTags((prev) => prev.filter((tag) => tag.id !== tagId));
+    setFilterTagIds((prev) => prev.filter((id) => id !== tagId));
+  };
+
   // Show loading state while syncing initial data
   if (syncStatus.isLoading) {
     return (
@@ -102,38 +180,113 @@ function App() {
             onRequestNotifications={requestPermission}
             notificationPermission={permission}
             isSyncing={syncStatus.isSyncing}
+            onOpenSidebar={() => setSidebarOpen(true)}
           />
 
-          {/* Desktop: Side-by-side layout, Mobile: Stacked */}
-          <div className="mt-6 lg:grid lg:grid-cols-[320px_1fr] lg:gap-6">
-            {/* Left column - Stats (sticky on desktop) */}
-            <div className="lg:sticky lg:top-6 lg:h-fit">
-              <StatsPanel
-                streak={streak}
-                weeklyStats={weeklyStats}
-                dailyProgress={dailyProgress}
-                totalCompleted={totalCompleted}
-              />
-            </div>
+          {/* Main Layout with Sidebar */}
+          <div className="mt-6 lg:flex lg:gap-6">
+            {/* Sidebar */}
+            <Sidebar
+              folders={folders}
+              tags={tags}
+              tasks={tasks}
+              activeFolderId={activeFolderId}
+              onSelectFolder={(id) => {
+                setActiveFolderId(id);
+                setShowDashboard(false);
+              }}
+              onCreateFolder={createFolder}
+              onUpdateFolder={updateFolder}
+              onDeleteFolder={deleteFolder}
+              onCreateTag={createTag}
+              onUpdateTag={updateTag}
+              onDeleteTag={deleteTag}
+              isOpen={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+              onShowDashboard={setShowDashboard}
+              showDashboard={showDashboard}
+            />
 
-            {/* Right column - Form and Tasks */}
-            <div className="mt-6 lg:mt-0 space-y-6">
-              <TaskForm
-                onAddTask={addTask}
-                editTask={editTask}
-                onUpdateTask={updateTask}
-                onCancelEdit={() => setEditTask(null)}
-              />
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+              <AnimatePresence mode="wait">
+                {showDashboard ? (
+                  <motion.div
+                    key="dashboard"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <Dashboard
+                      tasks={tasks}
+                      folders={folders}
+                      tags={tags}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="tasks"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    {/* Desktop: Side-by-side layout, Mobile: Stacked */}
+                    <div className="lg:grid lg:grid-cols-[320px_1fr] lg:gap-6">
+                      {/* Left column - Stats (sticky on desktop) */}
+                      <div className="lg:sticky lg:top-6 lg:h-fit hidden lg:block">
+                        <StatsPanel
+                          streak={streak}
+                          weeklyStats={weeklyStats}
+                          dailyProgress={dailyProgress}
+                          totalCompleted={totalCompleted}
+                        />
+                      </div>
 
-              <TaskList
-                tasks={tasks}
-                onToggle={toggleTask}
-                onDelete={deleteTask}
-                onEdit={setEditTask}
-                onReorder={reorderTasks}
-                filter={filter}
-                setFilter={setFilter}
-              />
+                      {/* Right column - Form and Tasks */}
+                      <div className="space-y-6">
+                        <TaskForm
+                          onAddTask={addTask}
+                          editTask={editTask}
+                          onUpdateTask={updateTask}
+                          onCancelEdit={() => setEditTask(null)}
+                          folders={folders}
+                          tags={tags}
+                          tasks={tasks}
+                          activeFolderId={activeFolderId}
+                          onCreateTag={createTag}
+                        />
+
+                        <TaskList
+                          tasks={tasks}
+                          onToggle={toggleTask}
+                          onDelete={deleteTask}
+                          onEdit={setEditTask}
+                          onReorder={reorderTasks}
+                          filter={filter}
+                          setFilter={setFilter}
+                          activeFolderId={activeFolderId}
+                          tags={tags}
+                          folders={folders}
+                          filterTagIds={filterTagIds}
+                          onFilterTagsChange={setFilterTagIds}
+                          filterAssignee={filterAssignee}
+                          onFilterAssigneeChange={setFilterAssignee}
+                        />
+
+                        {/* Mobile Stats - Show below task list */}
+                        <div className="lg:hidden">
+                          <StatsPanel
+                            streak={streak}
+                            weeklyStats={weeklyStats}
+                            dailyProgress={dailyProgress}
+                            totalCompleted={totalCompleted}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 

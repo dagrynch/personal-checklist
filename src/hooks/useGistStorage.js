@@ -1,18 +1,40 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { migrateData, getDefaultData, CURRENT_VERSION } from '../utils/migrationUtils';
 
 // Token is injected at build time from GitHub Secrets
 const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
 const GIST_FILENAME = 'personal-checklist-data.json';
 const GIST_DESCRIPTION = 'Personal Checklist App Data - Do not delete';
 
-const useGistStorage = (key, initialValue) => {
+// Storage keys
+const STORAGE_KEYS = {
+  TASKS: 'checklist-tasks',
+  FOLDERS: 'checklist-folders',
+  TAGS: 'checklist-tags',
+  SETTINGS: 'checklist-settings',
+};
+
+/**
+ * Hook for multi-key gist storage with automatic sync
+ * Returns all data and setters for each data type
+ */
+const useGistStorage = () => {
   // Initialize from localStorage first for immediate display
-  const [storedValue, setStoredValue] = useState(() => {
+  const [data, setData] = useState(() => {
     try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      const defaults = getDefaultData();
+      const stored = {};
+
+      // Load each key from localStorage
+      for (const key of Object.values(STORAGE_KEYS)) {
+        const item = localStorage.getItem(key);
+        stored[key] = item ? JSON.parse(item) : defaults[key];
+      }
+
+      return stored;
     } catch (e) {
-      return initialValue;
+      console.error('Error loading from localStorage:', e);
+      return getDefaultData();
     }
   });
 
@@ -21,12 +43,20 @@ const useGistStorage = (key, initialValue) => {
   const [error, setError] = useState(null);
   const gistIdRef = useRef(null);
   const initializedRef = useRef(false);
+  const syncTimeoutRef = useRef(null);
 
   const getHeaders = useCallback(() => ({
     'Authorization': `Bearer ${GITHUB_TOKEN}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
   }), []);
+
+  // Save all data to localStorage
+  const saveToLocalStorage = useCallback((newData) => {
+    for (const [key, value] of Object.entries(newData)) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  }, []);
 
   // Initialize Gist connection
   useEffect(() => {
@@ -73,19 +103,37 @@ const useGistStorage = (key, initialValue) => {
             const content = fullGist.files[GIST_FILENAME]?.content;
 
             if (content) {
-              const data = JSON.parse(content);
-              const tasks = data[key];
+              let gistData = JSON.parse(content);
 
-              if (Array.isArray(tasks)) {
-                setStoredValue(tasks);
-                localStorage.setItem(key, JSON.stringify(tasks));
+              // Handle legacy format (just tasks array or single key)
+              if (Array.isArray(gistData)) {
+                gistData = { [STORAGE_KEYS.TASKS]: gistData };
+              } else if (gistData[STORAGE_KEYS.TASKS] && !gistData[STORAGE_KEYS.SETTINGS]) {
+                // Old format with just tasks key
+                gistData = { [STORAGE_KEYS.TASKS]: gistData[STORAGE_KEYS.TASKS] };
+              }
+
+              // Migrate data to current version
+              const migratedData = migrateData(gistData);
+
+              // Update state and localStorage
+              setData(migratedData);
+              saveToLocalStorage(migratedData);
+
+              // If we migrated, save back to gist
+              const currentVersion = gistData[STORAGE_KEYS.SETTINGS]?.version;
+              if (currentVersion !== CURRENT_VERSION) {
+                await saveToGist(migratedData);
               }
             }
           }
         } else {
           // No existing gist - create one with current localStorage data
-          const currentData = localStorage.getItem(key);
-          const tasksToSave = currentData ? JSON.parse(currentData) : initialValue;
+          const currentData = data;
+          const dataToSave = {
+            ...getDefaultData(),
+            ...currentData,
+          };
 
           const createResponse = await fetch('https://api.github.com/gists', {
             method: 'POST',
@@ -95,7 +143,7 @@ const useGistStorage = (key, initialValue) => {
               public: false,
               files: {
                 [GIST_FILENAME]: {
-                  content: JSON.stringify({ [key]: tasksToSave }, null, 2),
+                  content: JSON.stringify(dataToSave, null, 2),
                 },
               },
             }),
@@ -117,10 +165,11 @@ const useGistStorage = (key, initialValue) => {
     };
 
     initGist();
-  }, [key, getHeaders, initialValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getHeaders]);
 
-  // Save to gist
-  const saveToGist = useCallback(async (value) => {
+  // Save to gist (debounced)
+  const saveToGist = useCallback(async (newData) => {
     if (!gistIdRef.current || !GITHUB_TOKEN) return;
 
     setIsSyncing(true);
@@ -133,7 +182,7 @@ const useGistStorage = (key, initialValue) => {
         body: JSON.stringify({
           files: {
             [GIST_FILENAME]: {
-              content: JSON.stringify({ [key]: value }, null, 2),
+              content: JSON.stringify(newData, null, 2),
             },
           },
         }),
@@ -148,35 +197,101 @@ const useGistStorage = (key, initialValue) => {
     } finally {
       setIsSyncing(false);
     }
-  }, [key, getHeaders]);
+  }, [getHeaders]);
 
-  // Update value and sync
-  const setValue = useCallback((value) => {
-    setStoredValue(prevValue => {
-      const valueToStore = value instanceof Function ? value(prevValue) : value;
+  // Debounced sync to gist
+  const scheduleSyncToGist = useCallback((newData) => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
 
-      // Save to localStorage immediately
-      localStorage.setItem(key, JSON.stringify(valueToStore));
+    syncTimeoutRef.current = setTimeout(() => {
+      saveToGist(newData);
+    }, 500);
+  }, [saveToGist]);
 
-      // Sync to gist
-      if (GITHUB_TOKEN && gistIdRef.current) {
-        saveToGist(valueToStore);
+  // Generic setter factory
+  const createSetter = useCallback((key) => {
+    return (value) => {
+      setData(prevData => {
+        const newValue = value instanceof Function ? value(prevData[key]) : value;
+        const newData = {
+          ...prevData,
+          [key]: newValue,
+        };
+
+        // Save to localStorage immediately
+        localStorage.setItem(key, JSON.stringify(newValue));
+
+        // Schedule sync to gist
+        if (GITHUB_TOKEN && gistIdRef.current) {
+          scheduleSyncToGist(newData);
+        }
+
+        return newData;
+      });
+    };
+  }, [scheduleSyncToGist]);
+
+  // Individual setters
+  const setTasks = createSetter(STORAGE_KEYS.TASKS);
+  const setFolders = createSetter(STORAGE_KEYS.FOLDERS);
+  const setTags = createSetter(STORAGE_KEYS.TAGS);
+  const setSettings = createSetter(STORAGE_KEYS.SETTINGS);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
       }
+    };
+  }, []);
 
-      return valueToStore;
-    });
-  }, [key, saveToGist]);
+  return {
+    // Data
+    tasks: data[STORAGE_KEYS.TASKS] || [],
+    folders: data[STORAGE_KEYS.FOLDERS] || getDefaultData()[STORAGE_KEYS.FOLDERS],
+    tags: data[STORAGE_KEYS.TAGS] || [],
+    settings: data[STORAGE_KEYS.SETTINGS] || { version: CURRENT_VERSION },
 
-  return [
-    storedValue,
-    setValue,
-    {
+    // Setters
+    setTasks,
+    setFolders,
+    setTags,
+    setSettings,
+
+    // Status
+    syncStatus: {
       isLoading,
       isSyncing,
       error,
       isConfigured: !!GITHUB_TOKEN,
     },
-  ];
+  };
+};
+
+// Legacy hook for backwards compatibility during migration
+export const useSingleKeyStorage = (key, initialValue) => {
+  const [storedValue, setStoredValue] = useState(() => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch (e) {
+      return initialValue;
+    }
+  });
+
+  const setValue = useCallback((value) => {
+    setStoredValue(prevValue => {
+      const valueToStore = value instanceof Function ? value(prevValue) : value;
+      localStorage.setItem(key, JSON.stringify(valueToStore));
+      return valueToStore;
+    });
+  }, [key]);
+
+  return [storedValue, setValue];
 };
 
 export default useGistStorage;
+export { STORAGE_KEYS };
