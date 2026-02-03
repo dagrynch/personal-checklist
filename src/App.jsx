@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import PasswordGate from './components/PasswordGate';
+import GitHubSetup from './components/GitHubSetup';
 import Header from './components/Header';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import StatsPanel from './components/StatsPanel';
-import useLocalStorage from './hooks/useLocalStorage';
+import useGistStorage from './hooks/useGistStorage';
 import useNotifications from './hooks/useNotifications';
 import {
   calculateStreak,
@@ -16,12 +17,23 @@ import {
 } from './utils/statsUtils';
 
 function App() {
-  const [tasks, setTasks] = useLocalStorage('checklist-tasks', []);
+  const [tasks, setTasks, gistStatus] = useGistStorage('checklist-tasks', []);
   const [filter, setFilter] = useState('all');
   const [editTask, setEditTask] = useState(null);
   const [milestone, setMilestone] = useState(null);
+  const [showSetup, setShowSetup] = useState(false);
+  const [setupSkipped, setSetupSkipped] = useState(() => {
+    return localStorage.getItem('checklist_setup_skipped') === 'true';
+  });
 
   const { permission, requestPermission } = useNotifications(tasks);
+
+  // Show setup if not configured and not skipped
+  useEffect(() => {
+    if (!gistStatus.isLoading && !gistStatus.isConfigured && !setupSkipped) {
+      setShowSetup(true);
+    }
+  }, [gistStatus.isLoading, gistStatus.isConfigured, setupSkipped]);
 
   // Calculate stats
   const streak = calculateStreak(tasks);
@@ -38,6 +50,26 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [totalCompleted]);
+
+  const handleGitHubConfigure = async (token) => {
+    const result = await gistStatus.configureGitHub(token);
+    if (result.success) {
+      setShowSetup(false);
+      localStorage.removeItem('checklist_setup_skipped');
+      setSetupSkipped(false);
+    }
+    return result;
+  };
+
+  const handleSkipSetup = () => {
+    localStorage.setItem('checklist_setup_skipped', 'true');
+    setSetupSkipped(true);
+    setShowSetup(false);
+  };
+
+  const handleOpenSetup = () => {
+    setShowSetup(true);
+  };
 
   const addTask = (taskData) => {
     const newTask = {
@@ -79,67 +111,110 @@ function App() {
     setTasks(newTasks);
   };
 
+  // Show GitHub setup screen
+  if (showSetup && !gistStatus.isConfigured) {
+    return (
+      <PasswordGate>
+        <GitHubSetup
+          onConfigure={handleGitHubConfigure}
+          onSkip={handleSkipSetup}
+        />
+      </PasswordGate>
+    );
+  }
+
+  // Show loading state
+  if (gistStatus.isLoading) {
+    return (
+      <PasswordGate>
+        <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-2 border-accent-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-dark-300">Loading your tasks...</p>
+          </div>
+        </div>
+      </PasswordGate>
+    );
+  }
+
   return (
     <PasswordGate>
       <div className="bg-main min-h-screen">
         <div className="container mx-auto px-4 py-6 lg:py-8">
-        {/* Header - Full width */}
-        <Header
-          onRequestNotifications={requestPermission}
-          notificationPermission={permission}
-        />
+          {/* Header - Full width */}
+          <Header
+            onRequestNotifications={requestPermission}
+            notificationPermission={permission}
+            isGitHubConnected={gistStatus.isConfigured}
+            isSyncing={gistStatus.isSyncing}
+            onOpenGitHubSetup={handleOpenSetup}
+          />
 
-        {/* Desktop: Side-by-side layout, Mobile: Stacked */}
-        <div className="mt-6 lg:grid lg:grid-cols-[320px_1fr] lg:gap-6">
-          {/* Left column - Stats (sticky on desktop) */}
-          <div className="lg:sticky lg:top-6 lg:h-fit">
-            <StatsPanel
-              streak={streak}
-              weeklyStats={weeklyStats}
-              dailyProgress={dailyProgress}
-              totalCompleted={totalCompleted}
-            />
+          {/* Desktop: Side-by-side layout, Mobile: Stacked */}
+          <div className="mt-6 lg:grid lg:grid-cols-[320px_1fr] lg:gap-6">
+            {/* Left column - Stats (sticky on desktop) */}
+            <div className="lg:sticky lg:top-6 lg:h-fit">
+              <StatsPanel
+                streak={streak}
+                weeklyStats={weeklyStats}
+                dailyProgress={dailyProgress}
+                totalCompleted={totalCompleted}
+              />
+            </div>
+
+            {/* Right column - Form and Tasks */}
+            <div className="mt-6 lg:mt-0 space-y-6">
+              <TaskForm
+                onAddTask={addTask}
+                editTask={editTask}
+                onUpdateTask={updateTask}
+                onCancelEdit={() => setEditTask(null)}
+              />
+
+              <TaskList
+                tasks={tasks}
+                onToggle={toggleTask}
+                onDelete={deleteTask}
+                onEdit={setEditTask}
+                onReorder={reorderTasks}
+                filter={filter}
+                setFilter={setFilter}
+              />
+            </div>
           </div>
 
-          {/* Right column - Form and Tasks */}
-          <div className="mt-6 lg:mt-0 space-y-6">
-            <TaskForm
-              onAddTask={addTask}
-              editTask={editTask}
-              onUpdateTask={updateTask}
-              onCancelEdit={() => setEditTask(null)}
-            />
+          {/* Sync error notification */}
+          <AnimatePresence>
+            {gistStatus.error && (
+              <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 50 }}
+                className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm z-50"
+              >
+                Sync error: {gistStatus.error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-            <TaskList
-              tasks={tasks}
-              onToggle={toggleTask}
-              onDelete={deleteTask}
-              onEdit={setEditTask}
-              onReorder={reorderTasks}
-              filter={filter}
-              setFilter={setFilter}
-            />
-          </div>
-        </div>
-
-        {/* Milestone Celebration */}
-        <AnimatePresence>
-          {milestone && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.5, y: 50 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.5, y: 50 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 z-50"
-              style={{ boxShadow: '0 0 40px rgba(16, 185, 129, 0.5)' }}
-            >
-              <span className="text-3xl">🏆</span>
-              <div>
-                <p className="font-bold">Milestone Reached!</p>
-                <p className="text-sm opacity-90">{milestone} tasks completed!</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          {/* Milestone Celebration */}
+          <AnimatePresence>
+            {milestone && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5, y: 50 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.5, y: 50 }}
+                className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 z-50"
+                style={{ boxShadow: '0 0 40px rgba(16, 185, 129, 0.5)' }}
+              >
+                <span className="text-3xl">🏆</span>
+                <div>
+                  <p className="font-bold">Milestone Reached!</p>
+                  <p className="text-sm opacity-90">{milestone} tasks completed!</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </PasswordGate>
