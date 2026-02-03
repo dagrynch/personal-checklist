@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import PasswordGate from './components/PasswordGate';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
