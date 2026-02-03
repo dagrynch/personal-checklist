@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import PasswordGate from './components/PasswordGate';
 import Header from './components/Header';
 import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
@@ -79,8 +80,9 @@ function App() {
   };
 
   return (
-    <div className="bg-main min-h-screen">
-      <div className="container mx-auto px-4 py-6 lg:py-8">
+    <PasswordGate>
+      <div className="bg-main min-h-screen">
+        <div className="container mx-auto px-4 py-6 lg:py-8">
         {/* Header - Full width */}
         <Header
           onRequestNotifications={requestPermission}
@@ -138,8 +140,9 @@ function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </div>
-    </div>
+    </PasswordGate>
   );
 }
 
