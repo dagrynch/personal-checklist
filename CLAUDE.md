@@ -125,6 +125,8 @@ STORAGE_KEYS = {
     text: string,
     completed: boolean
   }],
+  recurrence: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly',
+  recurringParentId: string, // For auto-created recurring instances
   order: number            // Display order
 }
 ```
@@ -164,11 +166,14 @@ src/
 ├── components/
 │   ├── Dashboard.jsx       # Analytics dashboard with charts & task list
 │   ├── Sidebar.jsx         # Folder/tag navigation, mobile drawer
-│   ├── TaskForm.jsx        # Create/edit task form
+│   ├── TaskForm.jsx        # Create/edit task form (with recurrence)
 │   ├── TaskList.jsx        # Filtered task list with drag-drop
 │   ├── TaskItem.jsx        # Individual task display
 │   ├── Header.jsx          # Top bar with sync status
 │   ├── StatsPanel.jsx      # Streak, weekly stats
+│   ├── QuickAdd.jsx        # Natural language quick add input
+│   ├── CalendarView.jsx    # Monthly calendar view
+│   ├── KeyboardShortcutsHelp.jsx # Shortcuts modal
 │   ├── PasswordGate.jsx    # Optional password protection
 │   ├── FolderModal.jsx     # Create/edit folder dialog
 │   ├── TagManager.jsx      # Manage tags dialog
@@ -189,12 +194,14 @@ src/
 │       ├── PriorityChart.jsx    # Priority donut (custom SVG)
 │       └── FolderChart.jsx      # Folder distribution (custom SVG)
 ├── hooks/
-│   ├── useGistStorage.js   # Main data sync hook
-│   ├── useNotifications.js # Browser notifications
-│   ├── useLocalStorage.js  # localStorage wrapper
-│   └── useTheme.js         # Dark mode hook
+│   ├── useGistStorage.js       # Main data sync hook
+│   ├── useKeyboardShortcuts.js # Global keyboard shortcuts
+│   ├── useNotifications.js     # Browser notifications
+│   ├── useLocalStorage.js      # localStorage wrapper
+│   └── useTheme.js             # Dark mode hook
 └── utils/
     ├── dashboardUtils.js   # Dashboard data processing
+    ├── quickAddParser.js   # Natural language parser
     ├── statsUtils.js       # Streak, milestones calculation
     ├── dateUtils.js        # Date formatting, relative time
     ├── linkUtils.js        # Link type detection
@@ -214,6 +221,38 @@ src/
 - All tasks with filters (search, folder, priority, deadline)
 - Edit tasks directly from dashboard
 
+### Quick Add (Natural Language)
+Always visible at top of main content. Parse tasks with special syntax:
+- `!high` or `!h` - High priority (also `!m`, `!l`)
+- `#tagname` - Add a tag
+- `@name` - Assign to someone
+- `/folder` - Set folder
+- `today`, `tomorrow`, `monday`-`sunday` - Set deadline
+- `next week`, `in 3 days` - Relative dates
+
+Example: `Buy milk tomorrow #shopping !high @john`
+
+### Calendar View
+- Full month calendar with task indicators
+- Click any day to see/edit tasks
+- Visual priority and overdue indicators
+- Navigate months, quick "Today" button
+
+### Recurring Tasks
+- Set repeat: daily, weekly, monthly, yearly
+- Auto-creates new instance when completed
+- Maintains all properties (tags, checklist, etc.)
+
+### Keyboard Shortcuts
+| Key | Action |
+|-----|--------|
+| `N` | Focus quick add input |
+| `/` | Focus search |
+| `D` | Toggle dashboard view |
+| `C` | Toggle calendar view |
+| `Esc` | Close modals |
+| `?` | Show shortcuts help |
+
 ### Task Management
 - Create tasks with rich metadata
 - Subtasks/checklist within tasks
@@ -223,6 +262,7 @@ src/
 - External links (auto-detects Google Drive, GitHub, Figma, etc.)
 - Assignee field
 - Drag-and-drop reordering
+- Recurring tasks support
 
 ### Organization
 - Folders with custom colors and icons
