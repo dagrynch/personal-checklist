@@ -95,6 +95,21 @@ function App() {
     setTasks((prev) => prev.filter((task) => task.id !== id));
   };
 
+  const toggleChecklistItem = (taskId, itemId) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              checklist: task.checklist?.map((item) =>
+                item.id === itemId ? { ...item, completed: !item.completed } : item
+              ),
+            }
+          : task
+      )
+    );
+  };
+
   const reorderTasks = (newTasks) => {
     setTasks(newTasks);
   };
@@ -262,6 +277,7 @@ function App() {
                           onDelete={deleteTask}
                           onEdit={setEditTask}
                           onReorder={reorderTasks}
+                          onToggleChecklistItem={toggleChecklistItem}
                           filter={filter}
                           setFilter={setFilter}
                           activeFolderId={activeFolderId}

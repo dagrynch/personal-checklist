@@ -8,7 +8,7 @@ import TagBadge from './TagBadge';
 import AssigneeAvatar from './AssigneeAvatar';
 import LinkList from './LinkList';
 
-const TaskItem = ({ task, onToggle, onDelete, onEdit, tags = [], folders = [] }) => {
+const TaskItem = ({ task, onToggle, onDelete, onEdit, onToggleChecklistItem, tags = [], folders = [] }) => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -166,6 +166,48 @@ const TaskItem = ({ task, onToggle, onDelete, onEdit, tags = [], folders = [] })
           {/* Links */}
           {task.links?.length > 0 && (
             <LinkList links={task.links} compact />
+          )}
+
+          {/* Checklist */}
+          {task.checklist?.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                <span className="text-xs text-gray-500">
+                  {task.checklist.filter(i => i.completed).length}/{task.checklist.length} completed
+                </span>
+              </div>
+              {task.checklist.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-2 pl-1"
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => onToggleChecklistItem?.(task.id, item.id)}
+                    className={`w-4 h-4 rounded border flex items-center justify-center transition-all flex-shrink-0 ${
+                      item.completed
+                        ? 'bg-emerald-500 border-emerald-500'
+                        : 'border-dark-300 hover:border-emerald-500'
+                    }`}
+                  >
+                    {item.completed && (
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </motion.button>
+                  <span className={`text-sm ${
+                    item.completed ? 'text-gray-500 line-through' : 'text-gray-300'
+                  }`}>
+                    {item.text}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
 
           {/* Meta info row */}

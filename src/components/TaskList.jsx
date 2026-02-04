@@ -24,6 +24,7 @@ const TaskList = ({
   onDelete,
   onEdit,
   onReorder,
+  onToggleChecklistItem,
   filter,
   setFilter,
   activeFolderId,
@@ -207,6 +208,7 @@ const TaskList = ({
                   onToggle={onToggle}
                   onDelete={onDelete}
                   onEdit={onEdit}
+                  onToggleChecklistItem={onToggleChecklistItem}
                   tags={tags}
                   folders={folders}
                 />

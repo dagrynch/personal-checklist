@@ -4,6 +4,7 @@ import { getTodayString } from '../utils/dateUtils';
 import TagSelector from './TagSelector';
 import AssigneeInput from './AssigneeInput';
 import LinkInput from './LinkInput';
+import ChecklistInput from './ChecklistInput';
 
 const TaskForm = ({
   onAddTask,
@@ -25,6 +26,7 @@ const TaskForm = ({
   const [tagIds, setTagIds] = useState([]);
   const [assignee, setAssignee] = useState(null);
   const [links, setLinks] = useState([]);
+  const [checklist, setChecklist] = useState([]);
 
   useEffect(() => {
     if (editTask) {
@@ -36,6 +38,7 @@ const TaskForm = ({
       setTagIds(editTask.tagIds || []);
       setAssignee(editTask.assignee || null);
       setLinks(editTask.links || []);
+      setChecklist(editTask.checklist || []);
       setIsExpanded(true);
     } else {
       // Set folder to active folder when creating new task
@@ -56,6 +59,7 @@ const TaskForm = ({
       tagIds,
       assignee,
       links,
+      checklist,
     };
 
     if (editTask) {
@@ -76,6 +80,7 @@ const TaskForm = ({
     setTagIds([]);
     setAssignee(null);
     setLinks([]);
+    setChecklist([]);
     setIsExpanded(false);
     if (editTask) onCancelEdit();
   };
@@ -213,6 +218,12 @@ const TaskForm = ({
                 <LinkInput
                   links={links}
                   onChange={setLinks}
+                />
+
+                {/* Row 5: Checklist */}
+                <ChecklistInput
+                  items={checklist}
+                  onChange={setChecklist}
                 />
 
                 {/* Cancel Button (only when editing) */}
