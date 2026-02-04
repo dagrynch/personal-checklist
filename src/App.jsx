@@ -236,6 +236,9 @@ function App() {
                       tasks={tasks}
                       folders={folders}
                       tags={tags}
+                      onToggle={toggleTask}
+                      onEdit={setEditTask}
+                      onToggleChecklistItem={toggleChecklistItem}
                     />
                   </motion.div>
                 ) : (
