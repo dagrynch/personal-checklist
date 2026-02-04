@@ -34,7 +34,7 @@ function App() {
   const [editTask, setEditTask] = useState(null);
   const [milestone, setMilestone] = useState(null);
   const [activeFolderId, setActiveFolderId] = useState('inbox');
-  const [showDashboard, setShowDashboard] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filterTagIds, setFilterTagIds] = useState([]);
   const [filterAssignee, setFilterAssignee] = useState(null);
