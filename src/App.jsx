@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import PasswordGate from './components/PasswordGate';
 import Header from './components/Header';
@@ -7,8 +7,12 @@ import TaskForm from './components/TaskForm';
 import TaskList from './components/TaskList';
 import StatsPanel from './components/StatsPanel';
 import Dashboard from './components/Dashboard';
+import QuickAdd from './components/QuickAdd';
+import CalendarView from './components/CalendarView';
+import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
 import useGistStorage from './hooks/useGistStorage';
 import useNotifications from './hooks/useNotifications';
+import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
 import {
   calculateStreak,
   getWeeklyStats,
@@ -34,10 +38,15 @@ function App() {
   const [editTask, setEditTask] = useState(null);
   const [milestone, setMilestone] = useState(null);
   const [activeFolderId, setActiveFolderId] = useState('inbox');
-  const [showDashboard, setShowDashboard] = useState(true);
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'tasks', 'calendar'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filterTagIds, setFilterTagIds] = useState([]);
   const [filterAssignee, setFilterAssignee] = useState(null);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  // Refs for keyboard shortcuts
+  const quickAddRef = useRef(null);
+  const searchRef = useRef(null);
 
   const { permission, requestPermission } = useNotifications(tasks);
 
@@ -46,6 +55,29 @@ function App() {
   const weeklyStats = getWeeklyStats(tasks);
   const dailyProgress = getDailyProgress(tasks);
   const totalCompleted = getTotalCompleted(tasks);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onNewTask: () => {
+      quickAddRef.current?.focus();
+    },
+    onSearch: () => {
+      searchRef.current?.focus();
+    },
+    onToggleDashboard: () => {
+      setCurrentView(prev => prev === 'dashboard' ? 'tasks' : 'dashboard');
+    },
+    onToggleCalendar: () => {
+      setCurrentView(prev => prev === 'calendar' ? 'dashboard' : 'calendar');
+    },
+    onEscape: () => {
+      setEditTask(null);
+      setShowShortcutsHelp(false);
+    },
+    onShowHelp: () => {
+      setShowShortcutsHelp(prev => !prev);
+    },
+  });
 
   // Check for milestones
   useEffect(() => {
@@ -56,6 +88,80 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [totalCompleted]);
+
+  // Check for recurring tasks that need to be created
+  useEffect(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    tasks.forEach(task => {
+      if (task.completed && task.recurrence && task.recurrence !== 'none') {
+        const completedAt = new Date(task.completedAt);
+        const nextDate = getNextRecurrenceDate(completedAt, task.recurrence);
+
+        // Check if we should create a new instance
+        if (nextDate <= now) {
+          // Check if there's already an active instance of this recurring task
+          const hasActiveInstance = tasks.some(t =>
+            t.recurringParentId === task.id && !t.completed
+          );
+
+          if (!hasActiveInstance) {
+            createRecurringTaskInstance(task, nextDate);
+          }
+        }
+      }
+    });
+  }, [tasks]);
+
+  // Helper to calculate next recurrence date
+  const getNextRecurrenceDate = (fromDate, recurrence) => {
+    const next = new Date(fromDate);
+    switch (recurrence) {
+      case 'daily':
+        next.setDate(next.getDate() + 1);
+        break;
+      case 'weekly':
+        next.setDate(next.getDate() + 7);
+        break;
+      case 'monthly':
+        next.setMonth(next.getMonth() + 1);
+        break;
+      case 'yearly':
+        next.setFullYear(next.getFullYear() + 1);
+        break;
+      default:
+        break;
+    }
+    return next;
+  };
+
+  // Create a new instance of a recurring task
+  const createRecurringTaskInstance = (parentTask, deadline) => {
+    const newTask = {
+      id: Date.now().toString(),
+      title: parentTask.title,
+      description: parentTask.description,
+      deadline: deadline.toISOString().split('T')[0],
+      priority: parentTask.priority,
+      folderId: parentTask.folderId,
+      tagIds: parentTask.tagIds || [],
+      assignee: parentTask.assignee,
+      links: parentTask.links || [],
+      checklist: parentTask.checklist?.map(item => ({
+        ...item,
+        id: Date.now().toString() + Math.random(),
+        completed: false
+      })) || [],
+      recurrence: parentTask.recurrence,
+      recurringParentId: parentTask.id,
+      completed: false,
+      createdAt: new Date().toISOString(),
+      completedAt: null,
+      order: tasks.length,
+    };
+    setTasks(prev => [newTask, ...prev]);
+  };
 
   // Task CRUD operations
   const addTask = (taskData) => {
@@ -152,6 +258,7 @@ function App() {
       createdAt: new Date().toISOString(),
     };
     setTags((prev) => [...prev, newTag]);
+    return newTag;
   };
 
   const updateTag = (updatedTag) => {
@@ -208,7 +315,7 @@ function App() {
               activeFolderId={activeFolderId}
               onSelectFolder={(id) => {
                 setActiveFolderId(id);
-                setShowDashboard(false);
+                setCurrentView('tasks');
               }}
               onCreateFolder={createFolder}
               onUpdateFolder={updateFolder}
@@ -218,14 +325,27 @@ function App() {
               onDeleteTag={deleteTag}
               isOpen={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
-              onShowDashboard={setShowDashboard}
-              showDashboard={showDashboard}
+              onShowDashboard={() => setCurrentView('dashboard')}
+              showDashboard={currentView === 'dashboard'}
+              currentView={currentView}
+              onChangeView={setCurrentView}
             />
 
             {/* Main Content */}
             <div className="flex-1 min-w-0">
+              {/* Quick Add - Always visible */}
+              <div className="mb-6">
+                <QuickAdd
+                  onAddTask={addTask}
+                  folders={folders}
+                  tags={tags}
+                  onCreateTag={createTag}
+                  ref={quickAddRef}
+                />
+              </div>
+
               <AnimatePresence mode="wait">
-                {showDashboard ? (
+                {currentView === 'dashboard' && (
                   <motion.div
                     key="dashboard"
                     initial={{ opacity: 0, y: 20 }}
@@ -239,9 +359,29 @@ function App() {
                       onToggle={toggleTask}
                       onEdit={setEditTask}
                       onToggleChecklistItem={toggleChecklistItem}
+                      searchRef={searchRef}
                     />
                   </motion.div>
-                ) : (
+                )}
+
+                {currentView === 'calendar' && (
+                  <motion.div
+                    key="calendar"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <CalendarView
+                      tasks={tasks}
+                      folders={folders}
+                      tags={tags}
+                      onToggle={toggleTask}
+                      onEdit={setEditTask}
+                    />
+                  </motion.div>
+                )}
+
+                {currentView === 'tasks' && (
                   <motion.div
                     key="tasks"
                     initial={{ opacity: 0, y: 20 }}
@@ -307,6 +447,22 @@ function App() {
                 )}
               </AnimatePresence>
             </div>
+          </div>
+
+          {/* Keyboard Shortcuts Help Modal */}
+          <KeyboardShortcutsHelp
+            isOpen={showShortcutsHelp}
+            onClose={() => setShowShortcutsHelp(false)}
+          />
+
+          {/* Keyboard shortcuts hint */}
+          <div className="fixed bottom-4 right-4 hidden lg:block">
+            <button
+              onClick={() => setShowShortcutsHelp(true)}
+              className="px-3 py-1.5 rounded-lg bg-dark-700 border border-dark-400 text-gray-500 hover:text-gray-300 text-sm transition-colors"
+            >
+              Press <kbd className="px-1.5 py-0.5 rounded bg-dark-600 text-gray-400 font-mono">?</kbd> for shortcuts
+            </button>
           </div>
 
           {/* Sync error notification */}

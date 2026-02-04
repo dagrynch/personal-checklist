@@ -73,6 +73,8 @@ const Sidebar = ({
   onClose,
   onShowDashboard,
   showDashboard,
+  currentView,
+  onChangeView,
 }) => {
   const [folderModal, setFolderModal] = useState({ isOpen: false, folder: null });
   const [showTagManager, setShowTagManager] = useState(false);
@@ -105,17 +107,17 @@ const Sidebar = ({
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      {/* Dashboard Button */}
-      <div className="p-4 border-b border-dark-400">
+      {/* Dashboard & Calendar Buttons */}
+      <div className="p-4 border-b border-dark-400 space-y-2">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => {
-            onShowDashboard(!showDashboard);
+            onChangeView?.('dashboard');
             onClose?.();
           }}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-            showDashboard
+            currentView === 'dashboard'
               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
               : 'bg-dark-600 text-gray-300 border border-dark-400 hover:border-emerald-500/50'
           }`}
@@ -124,6 +126,25 @@ const Sidebar = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           <span className="font-medium">Dashboard</span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            onChangeView?.('calendar');
+            onClose?.();
+          }}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            currentView === 'calendar'
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : 'bg-dark-600 text-gray-300 border border-dark-400 hover:border-emerald-500/50'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span className="font-medium">Calendar</span>
         </motion.button>
       </div>
 

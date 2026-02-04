@@ -27,6 +27,7 @@ const TaskForm = ({
   const [assignee, setAssignee] = useState(null);
   const [links, setLinks] = useState([]);
   const [checklist, setChecklist] = useState([]);
+  const [recurrence, setRecurrence] = useState('none');
 
   useEffect(() => {
     if (editTask) {
@@ -39,6 +40,7 @@ const TaskForm = ({
       setAssignee(editTask.assignee || null);
       setLinks(editTask.links || []);
       setChecklist(editTask.checklist || []);
+      setRecurrence(editTask.recurrence || 'none');
       setIsExpanded(true);
     } else {
       // Set folder to active folder when creating new task
@@ -60,6 +62,7 @@ const TaskForm = ({
       assignee,
       links,
       checklist,
+      recurrence,
     };
 
     if (editTask) {
@@ -81,6 +84,7 @@ const TaskForm = ({
     setAssignee(null);
     setLinks([]);
     setChecklist([]);
+    setRecurrence('none');
     setIsExpanded(false);
     if (editTask) onCancelEdit();
   };
@@ -174,6 +178,42 @@ const TaskForm = ({
                       ))}
                     </div>
                   </div>
+                </div>
+
+                {/* Row 1.5: Recurrence */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Repeat
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: 'none', label: 'Never' },
+                      { value: 'daily', label: 'Daily' },
+                      { value: 'weekly', label: 'Weekly' },
+                      { value: 'monthly', label: 'Monthly' },
+                      { value: 'yearly', label: 'Yearly' },
+                    ].map((opt) => (
+                      <motion.button
+                        key={opt.value}
+                        type="button"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setRecurrence(opt.value)}
+                        className={`px-4 py-2 rounded-xl font-medium transition-all text-sm ${
+                          recurrence === opt.value
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-dark-600 text-gray-400 border border-dark-400 hover:border-gray-500'
+                        }`}
+                      >
+                        {opt.label}
+                      </motion.button>
+                    ))}
+                  </div>
+                  {recurrence !== 'none' && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Task will repeat {recurrence} after completion
+                    </p>
+                  )}
                 </div>
 
                 {/* Row 2: Folder & Assignee */}
