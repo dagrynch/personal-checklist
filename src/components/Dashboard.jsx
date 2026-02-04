@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   getPriorityDistribution,
@@ -17,6 +18,8 @@ import AssigneeAvatar from './AssigneeAvatar';
 import TagBadge from './TagBadge';
 
 const Dashboard = ({ tasks, folders, tags }) => {
+  const [showCompleted, setShowCompleted] = useState(false);
+
   const stats = getSummaryStats(tasks, folders);
   const priorityData = getPriorityDistribution(tasks);
   const folderData = getFolderDistribution(tasks, folders);
@@ -25,6 +28,27 @@ const Dashboard = ({ tasks, folders, tags }) => {
   const overdueTasks = getOverdueTasks(tasks);
   const assigneeWorkload = getAssigneeWorkload(tasks);
   const tagStats = getTagStats(tasks, tags);
+
+  // Get all tasks sorted by priority then by creation date
+  const allTasks = tasks
+    .filter(t => showCompleted ? true : !t.completed)
+    .sort((a, b) => {
+      // Sort by completion status first (active first)
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      // Then by priority
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      const priorityDiff = (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
+      if (priorityDiff !== 0) return priorityDiff;
+      // Then by creation date (newest first)
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+  // Helper to get folder name by ID
+  const getFolderName = (folderId) => {
+    if (!folderId || folderId === 'inbox') return 'Inbox';
+    const folder = folders.find(f => f.id === folderId);
+    return folder?.name || 'Unknown';
+  };
 
   return (
     <motion.div
@@ -222,6 +246,70 @@ const Dashboard = ({ tasks, folders, tags }) => {
               ))}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* All Tasks Section */}
+      <div className="card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            All Tasks ({allTasks.length})
+          </h3>
+          <button
+            onClick={() => setShowCompleted(!showCompleted)}
+            className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
+              showCompleted
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                : 'bg-dark-600 text-gray-400 border border-dark-400 hover:border-gray-500'
+            }`}
+          >
+            {showCompleted ? 'Hide Completed' : 'Show Completed'}
+          </button>
+        </div>
+        {allTasks.length > 0 ? (
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {allTasks.map((task) => (
+              <div
+                key={task.id}
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                  task.completed
+                    ? 'bg-dark-700 border-dark-500 opacity-60'
+                    : 'bg-dark-600 border-dark-400'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                  task.completed ? 'bg-gray-500' :
+                  task.priority === 'high' ? 'bg-red-500' :
+                  task.priority === 'low' ? 'bg-emerald-500' : 'bg-amber-500'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm truncate ${task.completed ? 'text-gray-500 line-through' : 'text-white'}`}>
+                    {task.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-600">{getFolderName(task.folderId)}</span>
+                    {task.deadline && (
+                      <span className={`text-xs ${
+                        !task.completed && new Date(task.deadline) < new Date() ? 'text-red-400' : 'text-gray-500'
+                      }`}>
+                        {getRelativeTime(task.deadline)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {task.assignee && (
+                  <AssigneeAvatar name={task.assignee} size="sm" />
+                )}
+                {task.completed && (
+                  <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 text-center py-8">No tasks yet</p>
         )}
       </div>
     </motion.div>

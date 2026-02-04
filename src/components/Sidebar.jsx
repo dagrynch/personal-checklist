@@ -164,13 +164,13 @@ const Sidebar = ({
               </span>
               {!folder.isDefault && (
                 <motion.button
-                  initial={{ opacity: 0 }}
                   whileHover={{ scale: 1.1 }}
                   onClick={(e) => handleEditFolder(folder, e)}
-                  className="p-1 rounded opacity-0 group-hover:opacity-100 text-gray-500 hover:text-white hover:bg-dark-400 transition-all"
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-dark-400 transition-all"
+                  title="Edit or delete folder"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
                 </motion.button>
               )}
