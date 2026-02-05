@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   TASKS: 'checklist-tasks',
   FOLDERS: 'checklist-folders',
   TAGS: 'checklist-tags',
+  NOTES: 'checklist-notes',
   SETTINGS: 'checklist-settings',
 };
 
@@ -237,6 +238,7 @@ const useGistStorage = () => {
   const setTasks = createSetter(STORAGE_KEYS.TASKS);
   const setFolders = createSetter(STORAGE_KEYS.FOLDERS);
   const setTags = createSetter(STORAGE_KEYS.TAGS);
+  const setNotes = createSetter(STORAGE_KEYS.NOTES);
   const setSettings = createSetter(STORAGE_KEYS.SETTINGS);
 
   // Cleanup on unmount
@@ -253,12 +255,14 @@ const useGistStorage = () => {
     tasks: data[STORAGE_KEYS.TASKS] || [],
     folders: data[STORAGE_KEYS.FOLDERS] || getDefaultData()[STORAGE_KEYS.FOLDERS],
     tags: data[STORAGE_KEYS.TAGS] || [],
+    notes: data[STORAGE_KEYS.NOTES] || [],
     settings: data[STORAGE_KEYS.SETTINGS] || { version: CURRENT_VERSION },
 
     // Setters
     setTasks,
     setFolders,
     setTags,
+    setNotes,
     setSettings,
 
     // Status

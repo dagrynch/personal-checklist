@@ -1,9 +1,9 @@
 // Data migration utilities for schema version upgrades
 
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 /**
- * Default data structure for version 2
+ * Default data structure for version 3
  */
 export const getDefaultData = () => ({
   'checklist-tasks': [],
@@ -11,6 +11,7 @@ export const getDefaultData = () => ({
     { id: 'inbox', name: 'Inbox', color: 'gray', icon: 'inbox', order: 0, createdAt: new Date().toISOString(), isDefault: true },
   ],
   'checklist-tags': [],
+  'checklist-notes': [],
   'checklist-settings': { version: CURRENT_VERSION },
 });
 
@@ -25,6 +26,21 @@ const migrateTaskV1ToV2 = (task) => ({
   links: task.links ?? [],
   order: task.order ?? 0,
 });
+
+/**
+ * Migrate data from v2 to v3 schema (adds notes support)
+ */
+const migrateV2ToV3 = (data) => {
+  console.log('Migrating data from v2 to v3 (adding notes support)');
+  return {
+    ...data,
+    'checklist-notes': data['checklist-notes'] || [],
+    'checklist-settings': {
+      ...data['checklist-settings'],
+      version: 3,
+    },
+  };
+};
 
 /**
  * Detect data version from stored data
@@ -52,14 +68,14 @@ export const detectVersion = (data) => {
  * Migrate data from any version to current version
  */
 export const migrateData = (data) => {
-  const version = detectVersion(data);
+  let version = detectVersion(data);
 
   // Already current version
   if (version === CURRENT_VERSION) {
     return data;
   }
 
-  let migratedData = { ...getDefaultData() };
+  let migratedData = { ...data };
 
   // Handle v1 data
   if (version === 1) {
@@ -72,12 +88,22 @@ export const migrateData = (data) => {
     }
 
     // Migrate each task to v2 schema
-    migratedData['checklist-tasks'] = tasks.map((task, index) => ({
-      ...migrateTaskV1ToV2(task),
-      order: index,
-    }));
+    const defaults = getDefaultData();
+    migratedData = {
+      ...defaults,
+      'checklist-tasks': tasks.map((task, index) => ({
+        ...migrateTaskV1ToV2(task),
+        order: index,
+      })),
+    };
 
     console.log(`Migrated ${tasks.length} tasks from v1 to v2`);
+    version = 2;
+  }
+
+  // Handle v2 data - migrate to v3
+  if (version === 2) {
+    migratedData = migrateV2ToV3(migratedData);
   }
 
   return migratedData;
@@ -114,6 +140,10 @@ export const validateData = (data) => {
 
   if (!Array.isArray(data['checklist-tags'])) {
     errors.push('checklist-tags must be an array');
+  }
+
+  if (!Array.isArray(data['checklist-notes'])) {
+    errors.push('checklist-notes must be an array');
   }
 
   if (!data['checklist-settings'] || typeof data['checklist-settings'] !== 'object') {

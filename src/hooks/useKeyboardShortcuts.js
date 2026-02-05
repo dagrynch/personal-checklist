@@ -8,6 +8,7 @@ import { useEffect, useCallback } from 'react';
  * - /: Focus search
  * - D: Toggle dashboard
  * - C: Toggle calendar
+ * - M: Toggle notes view
  * - Escape: Close modals/clear focus
  * - ?: Show shortcuts help
  *
@@ -16,6 +17,7 @@ import { useEffect, useCallback } from 'react';
  * @param {Function} handlers.onSearch - Called when / is pressed
  * @param {Function} handlers.onToggleDashboard - Called when D is pressed
  * @param {Function} handlers.onToggleCalendar - Called when C is pressed
+ * @param {Function} handlers.onToggleNotes - Called when M is pressed
  * @param {Function} handlers.onEscape - Called when Escape is pressed
  * @param {Function} handlers.onShowHelp - Called when ? is pressed
  * @param {boolean} enabled - Whether shortcuts are enabled
@@ -65,6 +67,11 @@ const useKeyboardShortcuts = (handlers = {}, enabled = true) => {
         handlers.onToggleCalendar?.();
         break;
 
+      case 'm':
+        event.preventDefault();
+        handlers.onToggleNotes?.();
+        break;
+
       case '?':
         event.preventDefault();
         handlers.onShowHelp?.();
@@ -91,6 +98,7 @@ export const KEYBOARD_SHORTCUTS = [
   { key: '/', description: 'Focus search' },
   { key: 'D', description: 'Toggle dashboard view' },
   { key: 'C', description: 'Toggle calendar view' },
+  { key: 'M', description: 'Toggle notes view' },
   { key: 'Esc', description: 'Close modal / Clear focus' },
   { key: '?', description: 'Show keyboard shortcuts' },
 ];

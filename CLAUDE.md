@@ -6,7 +6,8 @@ A modern, feature-rich task management application built with React and Vite, fe
 
 This is a personal productivity app designed to:
 - Manage tasks with rich metadata (priority, deadlines, checklists, tags, links)
-- Organize work into folders
+- Take notes in Markdown with rich editor (Evernote-inspired)
+- Organize work into folders (shared between tasks and notes)
 - Track progress with a comprehensive dashboard
 - Sync data across devices using GitHub Gist as a free cloud backend
 - Work offline with localStorage fallback
@@ -24,6 +25,7 @@ This is a personal productivity app designed to:
 | **Tailwind CSS 3** | Utility-first styling |
 | **Framer Motion** | Animations |
 | **@dnd-kit** | Drag-and-drop functionality |
+| **@uiw/react-md-editor** | Markdown editor with live preview |
 | **GitHub Gist API** | Cloud data storage |
 | **GitHub Pages** | Static hosting |
 | **GitHub Actions** | CI/CD deployment |
@@ -97,13 +99,14 @@ STORAGE_KEYS = {
   TASKS: 'checklist-tasks',
   FOLDERS: 'checklist-folders',
   TAGS: 'checklist-tags',
+  NOTES: 'checklist-notes',
   SETTINGS: 'checklist-settings'
 }
 ```
 
 ---
 
-## Data Models (v2)
+## Data Models (v3)
 
 ### Task
 ```javascript
@@ -154,6 +157,31 @@ STORAGE_KEYS = {
 }
 ```
 
+### Note
+```javascript
+{
+  id: string,              // Timestamp-based unique ID
+  title: string,           // Note title
+  content: string,         // Markdown content
+  folderId: string,        // Folder ID or null (inbox)
+  tagIds: string[],        // Array of tag IDs
+  linkedTaskIds: string[], // Array of linked task IDs
+  attachments: [{          // File attachments
+    id: string,
+    name: string,          // Original filename
+    type: string,          // MIME type
+    size: number,          // Size in bytes
+    data: string,          // Base64 encoded (< 500KB)
+    url: string            // External URL for large files
+  }],
+  isPinned: boolean,       // Pinned at top
+  isFavorite: boolean,     // Starred/favorite
+  createdAt: string,       // ISO timestamp
+  updatedAt: string,       // ISO timestamp
+  order: number            // Display order
+}
+```
+
 ---
 
 ## Project Structure
@@ -173,6 +201,12 @@ src/
 │   ├── StatsPanel.jsx      # Streak, weekly stats
 │   ├── QuickAdd.jsx        # Natural language quick add input
 │   ├── CalendarView.jsx    # Monthly calendar view
+│   ├── NoteList.jsx        # Notes grid with pinned section
+│   ├── NoteItem.jsx        # Individual note card
+│   ├── NoteEditor.jsx      # Markdown editor for notes
+│   ├── TaskLinkSelector.jsx # Link notes to tasks
+│   ├── AttachmentInput.jsx  # File upload with drag-drop
+│   ├── AttachmentPreview.jsx # Display attached files
 │   ├── KeyboardShortcutsHelp.jsx # Shortcuts modal
 │   ├── PasswordGate.jsx    # Optional password protection
 │   ├── FolderModal.jsx     # Create/edit folder dialog
@@ -205,7 +239,9 @@ src/
     ├── statsUtils.js       # Streak, milestones calculation
     ├── dateUtils.js        # Date formatting, relative time
     ├── linkUtils.js        # Link type detection
-    └── migrationUtils.js   # Data schema migration
+    ├── noteUtils.js        # Note helpers (search, sort, excerpt)
+    ├── attachmentUtils.js  # File validation, base64 encoding
+    └── migrationUtils.js   # Data schema migration (v3)
 ```
 
 ---
@@ -250,8 +286,18 @@ Example: `Buy milk tomorrow #shopping !high @john`
 | `/` | Focus search |
 | `D` | Toggle dashboard view |
 | `C` | Toggle calendar view |
+| `M` | Toggle notes view |
 | `Esc` | Close modals |
 | `?` | Show shortcuts help |
+
+### Notes (Markdown)
+- Rich Markdown editor with toolbar and live preview
+- Pin important notes at top
+- Star notes as favorites
+- Attach files (images, PDFs, text) up to 500KB each
+- Link notes to specific tasks
+- Search across note content
+- Shares folders and tags with tasks
 
 ### Task Management
 - Create tasks with rich metadata
@@ -316,5 +362,6 @@ Implemented in `useNotifications.js`. Requires user permission. Notifies for upc
 
 ## Version History
 
-- **v2** (Current): Added folders, tags, checklist, links, assignee, improved dashboard
+- **v3** (Current): Added Markdown notes with rich editor, attachments, pinning, favorites, task linking
+- **v2**: Added folders, tags, checklist, links, assignee, improved dashboard
 - **v1**: Basic tasks with title, description, deadline, priority

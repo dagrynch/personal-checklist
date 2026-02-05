@@ -61,6 +61,7 @@ const Sidebar = ({
   folders,
   tags,
   tasks,
+  notes = [],
   activeFolderId,
   onSelectFolder,
   onCreateFolder,
@@ -84,6 +85,13 @@ const Sidebar = ({
       return tasks.filter(t => !t.folderId || t.folderId === 'inbox').filter(t => !t.completed).length;
     }
     return tasks.filter(t => t.folderId === folderId).filter(t => !t.completed).length;
+  };
+
+  const getNoteCount = (folderId) => {
+    if (folderId === 'inbox' || folderId === null) {
+      return notes.filter(n => !n.folderId || n.folderId === 'inbox').length;
+    }
+    return notes.filter(n => n.folderId === folderId).length;
   };
 
   const handleFolderClick = (folderId) => {
@@ -146,6 +154,30 @@ const Sidebar = ({
           </svg>
           <span className="font-medium">Calendar</span>
         </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => {
+            onChangeView?.('notes');
+            onClose?.();
+          }}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            currentView === 'notes' || currentView === 'note-editor'
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : 'bg-dark-600 text-gray-300 border border-dark-400 hover:border-emerald-500/50'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span className="font-medium">Notes</span>
+          {notes.length > 0 && (
+            <span className="ml-auto text-xs bg-dark-500 text-gray-400 px-2 py-0.5 rounded-full">
+              {notes.length}
+            </span>
+          )}
+        </motion.button>
       </div>
 
       {/* Folders Section */}
@@ -180,8 +212,8 @@ const Sidebar = ({
                 {FOLDER_ICONS[folder.icon] || FOLDER_ICONS.folder}
               </span>
               <span className="flex-1 text-left text-sm font-medium truncate">{folder.name}</span>
-              <span className="text-xs text-gray-600 group-hover:text-gray-400">
-                {getTaskCount(folder.id)}
+              <span className="text-xs text-gray-600 group-hover:text-gray-400" title={`${getTaskCount(folder.id)} tasks, ${getNoteCount(folder.id)} notes`}>
+                {getTaskCount(folder.id)}{getNoteCount(folder.id) > 0 && `/${getNoteCount(folder.id)}`}
               </span>
               {!folder.isDefault && (
                 <motion.button

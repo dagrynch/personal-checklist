@@ -10,6 +10,8 @@ import Dashboard from './components/Dashboard';
 import QuickAdd from './components/QuickAdd';
 import CalendarView from './components/CalendarView';
 import KeyboardShortcutsHelp from './components/KeyboardShortcutsHelp';
+import NoteList from './components/NoteList';
+import NoteEditor from './components/NoteEditor';
 import useGistStorage from './hooks/useGistStorage';
 import useNotifications from './hooks/useNotifications';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
@@ -27,9 +29,11 @@ function App() {
     tasks,
     folders,
     tags,
+    notes,
     setTasks,
     setFolders,
     setTags,
+    setNotes,
     syncStatus,
   } = useGistStorage();
 
@@ -38,11 +42,13 @@ function App() {
   const [editTask, setEditTask] = useState(null);
   const [milestone, setMilestone] = useState(null);
   const [activeFolderId, setActiveFolderId] = useState('inbox');
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'tasks', 'calendar'
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard', 'tasks', 'calendar', 'notes', 'note-editor'
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [filterTagIds, setFilterTagIds] = useState([]);
   const [filterAssignee, setFilterAssignee] = useState(null);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  const [editNote, setEditNote] = useState(null);
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
 
   // Refs for keyboard shortcuts
   const quickAddRef = useRef(null);
@@ -70,9 +76,16 @@ function App() {
     onToggleCalendar: () => {
       setCurrentView(prev => prev === 'calendar' ? 'dashboard' : 'calendar');
     },
+    onToggleNotes: () => {
+      setCurrentView(prev => prev === 'notes' || prev === 'note-editor' ? 'dashboard' : 'notes');
+    },
     onEscape: () => {
       setEditTask(null);
+      setEditNote(null);
       setShowShortcutsHelp(false);
+      if (currentView === 'note-editor') {
+        setCurrentView('notes');
+      }
     },
     onShowHelp: () => {
       setShowShortcutsHelp(prev => !prev);
@@ -244,6 +257,12 @@ function App() {
         task.folderId === folderId ? { ...task, folderId: null } : task
       )
     );
+    // Move notes from deleted folder to inbox
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.folderId === folderId ? { ...note, folderId: null } : note
+      )
+    );
     setFolders((prev) => prev.filter((folder) => folder.id !== folderId));
     if (activeFolderId === folderId) {
       setActiveFolderId('inbox');
@@ -275,8 +294,85 @@ function App() {
         tagIds: task.tagIds?.filter((id) => id !== tagId) || [],
       }))
     );
+    // Remove tag from all notes
+    setNotes((prev) =>
+      prev.map((note) => ({
+        ...note,
+        tagIds: note.tagIds?.filter((id) => id !== tagId) || [],
+      }))
+    );
     setTags((prev) => prev.filter((tag) => tag.id !== tagId));
     setFilterTagIds((prev) => prev.filter((id) => id !== tagId));
+  };
+
+  // Note CRUD operations
+  const addNote = (noteData) => {
+    const newNote = {
+      id: Date.now().toString(),
+      ...noteData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      order: notes.length,
+    };
+    setNotes((prev) => [newNote, ...prev]);
+    setEditNote(null);
+    setCurrentView('notes');
+  };
+
+  const updateNote = (updatedNote) => {
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === updatedNote.id
+          ? { ...updatedNote, updatedAt: new Date().toISOString() }
+          : note
+      )
+    );
+    setEditNote(null);
+    setCurrentView('notes');
+  };
+
+  const deleteNote = (id) => {
+    setNotes((prev) => prev.filter((note) => note.id !== id));
+    setEditNote(null);
+    setCurrentView('notes');
+  };
+
+  const toggleNotePinned = (id) => {
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === id
+          ? { ...note, isPinned: !note.isPinned, updatedAt: new Date().toISOString() }
+          : note
+      )
+    );
+  };
+
+  const toggleNoteFavorite = (id) => {
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === id
+          ? { ...note, isFavorite: !note.isFavorite, updatedAt: new Date().toISOString() }
+          : note
+      )
+    );
+  };
+
+  const handleNoteClick = (note) => {
+    setEditNote(note);
+    setCurrentView('note-editor');
+  };
+
+  const handleNewNote = () => {
+    setEditNote(null);
+    setCurrentView('note-editor');
+  };
+
+  const handleSaveNote = (noteData) => {
+    if (editNote) {
+      updateNote(noteData);
+    } else {
+      addNote(noteData);
+    }
   };
 
   // Show loading state while syncing initial data
@@ -312,6 +408,7 @@ function App() {
               folders={folders}
               tags={tags}
               tasks={tasks}
+              notes={notes}
               activeFolderId={activeFolderId}
               onSelectFolder={(id) => {
                 setActiveFolderId(id);
@@ -443,6 +540,50 @@ function App() {
                         </div>
                       </div>
                     </div>
+                  </motion.div>
+                )}
+
+                {currentView === 'notes' && (
+                  <motion.div
+                    key="notes"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    <NoteList
+                      notes={notes}
+                      tags={tags}
+                      folders={folders}
+                      activeFolderId={activeFolderId}
+                      filterTagIds={filterTagIds}
+                      searchQuery={noteSearchQuery}
+                      onNoteClick={handleNoteClick}
+                      onTogglePin={toggleNotePinned}
+                      onToggleFavorite={toggleNoteFavorite}
+                      onNewNote={handleNewNote}
+                    />
+                  </motion.div>
+                )}
+
+                {currentView === 'note-editor' && (
+                  <motion.div
+                    key="note-editor"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="card overflow-hidden"
+                  >
+                    <NoteEditor
+                      note={editNote}
+                      isNew={!editNote}
+                      folders={folders}
+                      tags={tags}
+                      tasks={tasks}
+                      onSave={handleSaveNote}
+                      onDelete={deleteNote}
+                      onClose={() => setCurrentView('notes')}
+                      onCreateTag={createTag}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
