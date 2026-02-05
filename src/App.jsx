@@ -554,8 +554,8 @@ function App() {
                       notes={notes}
                       tags={tags}
                       folders={folders}
-                      activeFolderId={activeFolderId}
-                      filterTagIds={filterTagIds}
+                      activeFolderId={null}
+                      filterTagIds={[]}
                       searchQuery={noteSearchQuery}
                       onNoteClick={handleNoteClick}
                       onTogglePin={toggleNotePinned}
